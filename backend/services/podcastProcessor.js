@@ -26,7 +26,7 @@ export async function processPodcast(podcastUrl) {
         console.log('Using mock transcript for demo purposes...');
         transcript =
           'This is a demo transcript. In production, this would contain the actual podcast transcript extracted from the audio file. The transcript would include all spoken words from the podcast episode.';
-        transcriptData = { text: transcript, chapters: [], sentences: [], duration: 0 };
+        transcriptData = { text: transcript, chapters: [], sentences: [], utterances: [], speakerStats: [], duration: 0 };
       } else {
         throw error;
       }
@@ -43,7 +43,11 @@ export async function processPodcast(podcastUrl) {
     let analysis;
 
     try {
-      analysis = await analyzeTranscript(transcript, transcriptData.sentences || []);
+      analysis = await analyzeTranscript(
+        transcript,
+        transcriptData.sentences || [],
+        transcriptData.utterances || []
+      );
     } catch (error) {
       console.error('LLM analysis failed:', error.message);
 
@@ -70,6 +74,8 @@ export async function processPodcast(podcastUrl) {
       transcript: transcript.substring(0, 1000) + (transcript.length > 1000 ? '...' : ''), // First 1000 chars
       transcriptLength: transcript.length,
       chapters: transcriptData.chapters || [],
+      utterances: transcriptData.utterances || [],
+      speakerStats: transcriptData.speakerStats || [],
       analysis,
       processingTime: `${processingTime}s`,
       timestamp: new Date().toISOString(),

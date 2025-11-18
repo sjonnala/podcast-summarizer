@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import AudioPlayer from './AudioPlayer';
 import ChapterNavigation from './ChapterNavigation';
+import SpeakerStats from './SpeakerStats';
 
 export default function Results({ data, onReset }) {
-  const { analysis, processingTime, audioUrl, chapters } = data;
+  const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats } = data;
   const [seekToTime, setSeekToTime] = useState(null);
 
   const handleTimestampClick = (seconds) => {
@@ -21,6 +22,9 @@ export default function Results({ data, onReset }) {
 
       {/* Chapter Navigation - only show if chapters are available */}
       <ChapterNavigation chapters={chapters} onChapterClick={handleTimestampClick} />
+
+      {/* Speaker Statistics - only show if speaker data is available */}
+      <SpeakerStats speakerStats={speakerStats} utterances={utterances} />
 
       {/* Header with title and reset button */}
       <div className="glass-card p-6">
@@ -79,6 +83,18 @@ export default function Results({ data, onReset }) {
             const highlightText = typeof highlight === 'string' ? highlight : highlight.text;
             const timestamp = typeof highlight === 'object' ? highlight.timestamp : null;
             const timestampSeconds = typeof highlight === 'object' ? highlight.timestampSeconds : null;
+            const speaker = typeof highlight === 'object' ? highlight.speaker : null;
+
+            // Speaker colors (same as SpeakerStats)
+            const speakerColors = {
+              'A': { bg: 'bg-blue-100', text: 'text-blue-700', badge: 'bg-blue-500' },
+              'B': { bg: 'bg-purple-100', text: 'text-purple-700', badge: 'bg-purple-500' },
+              'C': { bg: 'bg-green-100', text: 'text-green-700', badge: 'bg-green-500' },
+              'D': { bg: 'bg-orange-100', text: 'text-orange-700', badge: 'bg-orange-500' },
+              'E': { bg: 'bg-pink-100', text: 'text-pink-700', badge: 'bg-pink-500' },
+              'F': { bg: 'bg-teal-100', text: 'text-teal-700', badge: 'bg-teal-500' },
+            };
+            const colors = speaker ? speakerColors[speaker] : null;
 
             return (
               <li key={index} className="flex items-start group">
@@ -87,17 +103,27 @@ export default function Results({ data, onReset }) {
                 </span>
                 <div className="flex-1">
                   <p className="text-slate-700 leading-relaxed pt-1">{highlightText}</p>
-                  {timestamp && (
-                    <button
-                      onClick={() => handleTimestampClick(timestampSeconds)}
-                      className="mt-2 inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors"
-                    >
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                      </svg>
-                      Jump to {timestamp}
-                    </button>
-                  )}
+                  <div className="mt-2 flex items-center space-x-2 flex-wrap">
+                    {speaker && colors && (
+                      <span className={`inline-flex items-center px-2 py-1 ${colors.bg} ${colors.text} rounded-full text-xs font-medium`}>
+                        <span className={`w-4 h-4 ${colors.badge} text-white rounded-full flex items-center justify-center text-xs mr-1`}>
+                          {speaker}
+                        </span>
+                        Speaker {speaker}
+                      </span>
+                    )}
+                    {timestamp && (
+                      <button
+                        onClick={() => handleTimestampClick(timestampSeconds)}
+                        className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                        </svg>
+                        Jump to {timestamp}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </li>
             );

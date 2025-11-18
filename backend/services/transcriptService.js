@@ -21,6 +21,7 @@ export async function extractTranscript(audioUrl) {
       {
         audio_url: audioUrl,
         auto_chapters: true, // Get chapter information for better structure
+        speaker_labels: true, // Enable speaker diarization
         punctuate: true,
         format_text: true,
       },
@@ -65,10 +66,29 @@ export async function extractTranscript(audioUrl) {
           }
         );
 
+        // Calculate speaker statistics if speaker labels are available
+        const speakerStats = {};
+        if (transcript.utterances && transcript.utterances.length > 0) {
+          transcript.utterances.forEach(utterance => {
+            const speaker = utterance.speaker;
+            if (!speakerStats[speaker]) {
+              speakerStats[speaker] = {
+                speaker,
+                totalTime: 0,
+                utteranceCount: 0,
+              };
+            }
+            speakerStats[speaker].totalTime += utterance.end - utterance.start;
+            speakerStats[speaker].utteranceCount += 1;
+          });
+        }
+
         return {
           text: transcript.text,
           chapters: transcript.chapters || [],
           sentences: sentencesResponse.data.sentences || [],
+          utterances: transcript.utterances || [],
+          speakerStats: Object.values(speakerStats),
           duration: transcript.audio_duration || 0,
         };
       } else if (transcript.status === 'error') {

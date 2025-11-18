@@ -21,6 +21,8 @@ export async function extractTranscript(audioUrl) {
       {
         audio_url: audioUrl,
         auto_chapters: true, // Get chapter information for better structure
+        punctuate: true,
+        format_text: true,
       },
       {
         headers: {
@@ -52,9 +54,22 @@ export async function extractTranscript(audioUrl) {
 
       if (transcript.status === 'completed') {
         console.log('Transcription completed successfully');
+
+        // Get sentences with timestamps from the completed transcript
+        const sentencesResponse = await axios.get(
+          `https://api.assemblyai.com/v2/transcript/${transcriptId}/sentences`,
+          {
+            headers: {
+              authorization: apiKey,
+            },
+          }
+        );
+
         return {
           text: transcript.text,
           chapters: transcript.chapters || [],
+          sentences: sentencesResponse.data.sentences || [],
+          duration: transcript.audio_duration || 0,
         };
       } else if (transcript.status === 'error') {
         throw new Error(`Transcription failed: ${transcript.error}`);

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import AudioPlayer from './AudioPlayer';
+import ChapterNavigation from './ChapterNavigation';
 
 export default function Results({ data, onReset }) {
-  const { analysis, processingTime, audioUrl } = data;
+  const { analysis, processingTime, audioUrl, chapters } = data;
   const [seekToTime, setSeekToTime] = useState(null);
 
   const handleTimestampClick = (seconds) => {
@@ -17,6 +18,9 @@ export default function Results({ data, onReset }) {
       {audioUrl && (
         <AudioPlayer audioUrl={audioUrl} currentTime={seekToTime} />
       )}
+
+      {/* Chapter Navigation - only show if chapters are available */}
+      <ChapterNavigation chapters={chapters} onChapterClick={handleTimestampClick} />
 
       {/* Header with title and reset button */}
       <div className="glass-card p-6">

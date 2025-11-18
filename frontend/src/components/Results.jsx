@@ -1,8 +1,23 @@
+import { useState } from 'react';
+import AudioPlayer from './AudioPlayer';
+
 export default function Results({ data, onReset }) {
-  const { analysis, processingTime } = data;
+  const { analysis, processingTime, audioUrl } = data;
+  const [seekToTime, setSeekToTime] = useState(null);
+
+  const handleTimestampClick = (seconds) => {
+    setSeekToTime(seconds);
+    // Reset after a moment to allow re-clicking same timestamp
+    setTimeout(() => setSeekToTime(null), 100);
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Audio Player - only show if we have a valid audio URL */}
+      {audioUrl && (
+        <AudioPlayer audioUrl={audioUrl} currentTime={seekToTime} />
+      )}
+
       {/* Header with title and reset button */}
       <div className="glass-card p-6">
         <div className="flex items-start justify-between">
@@ -55,14 +70,34 @@ export default function Results({ data, onReset }) {
           <h3 className="text-2xl font-bold text-slate-800">Highlights</h3>
         </div>
         <ul className="space-y-3">
-          {analysis.highlights.map((highlight, index) => (
-            <li key={index} className="flex items-start">
-              <span className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center font-bold mr-3 mt-0.5">
-                {index + 1}
-              </span>
-              <p className="text-slate-700 leading-relaxed pt-1">{highlight}</p>
-            </li>
-          ))}
+          {analysis.highlights.map((highlight, index) => {
+            // Handle both old string format and new object format
+            const highlightText = typeof highlight === 'string' ? highlight : highlight.text;
+            const timestamp = typeof highlight === 'object' ? highlight.timestamp : null;
+            const timestampSeconds = typeof highlight === 'object' ? highlight.timestampSeconds : null;
+
+            return (
+              <li key={index} className="flex items-start group">
+                <span className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center font-bold mr-3 mt-0.5">
+                  {index + 1}
+                </span>
+                <div className="flex-1">
+                  <p className="text-slate-700 leading-relaxed pt-1">{highlightText}</p>
+                  {timestamp && (
+                    <button
+                      onClick={() => handleTimestampClick(timestampSeconds)}
+                      className="mt-2 inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                      </svg>
+                      Jump to {timestamp}
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
 

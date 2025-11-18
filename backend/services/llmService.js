@@ -1,11 +1,80 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 /**
- * Analyze transcript using Claude AI
+ * Helper function to find timestamp for a text snippet
+ * @param {string} snippet - Text snippet to find
+ * @param {Array} sentences - Array of sentences with timestamps
+ * @returns {Object} - Timestamp object with formatted and seconds
+ */
+function findTimestampForText(snippet, sentences) {
+  if (!snippet || !sentences || sentences.length === 0) {
+    return { formatted: '00:00', seconds: 0 };
+  }
+
+  // Normalize the snippet for comparison
+  const normalizedSnippet = snippet.toLowerCase().trim();
+
+  // Try to find the sentence that contains this snippet
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const sentence of sentences) {
+    const normalizedSentence = sentence.text.toLowerCase();
+
+    // Check if sentence contains the snippet
+    if (normalizedSentence.includes(normalizedSnippet)) {
+      return formatTimestamp(sentence.start);
+    }
+
+    // Calculate similarity score (simple word overlap)
+    const snippetWords = normalizedSnippet.split(/\s+/);
+    const sentenceWords = normalizedSentence.split(/\s+/);
+    const overlap = snippetWords.filter(word => sentenceWords.includes(word)).length;
+    const score = overlap / snippetWords.length;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = sentence;
+    }
+  }
+
+  // Return best match if we found one with at least 30% overlap
+  if (bestMatch && bestScore > 0.3) {
+    return formatTimestamp(bestMatch.start);
+  }
+
+  // Default to start if no match found
+  return { formatted: '00:00', seconds: 0 };
+}
+
+/**
+ * Format milliseconds to MM:SS or HH:MM:SS
+ * @param {number} ms - Milliseconds
+ * @returns {Object} - Formatted timestamp
+ */
+function formatTimestamp(ms) {
+  const seconds = Math.floor(ms / 1000);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  let formatted;
+  if (hours > 0) {
+    formatted = `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  } else {
+    formatted = `${minutes}:${String(secs).padStart(2, '0')}`;
+  }
+
+  return { formatted, seconds };
+}
+
+/**
+ * Analyze transcript using Claude AI with timestamp mapping
  * @param {string} transcript - The podcast transcript
+ * @param {Array} sentences - Array of sentences with timestamps from AssemblyAI
  * @returns {Promise<Object>} - Analysis results
  */
-export async function analyzeTranscript(transcript) {
+export async function analyzeTranscript(transcript, sentences = []) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -37,11 +106,26 @@ Please provide your analysis in the following JSON format (respond ONLY with val
   "title": "A suggested title for this podcast episode based on the content",
   "summary": "A brief 2-3 sentence overview of the podcast",
   "highlights": [
-    "First key highlight or memorable moment",
-    "Second key highlight or memorable moment",
-    "Third key highlight or memorable moment",
-    "Fourth key highlight or memorable moment",
-    "Fifth key highlight or memorable moment"
+    {
+      "text": "First key highlight or memorable moment",
+      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
+    },
+    {
+      "text": "Second key highlight or memorable moment",
+      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
+    },
+    {
+      "text": "Third key highlight or memorable moment",
+      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
+    },
+    {
+      "text": "Fourth key highlight or memorable moment",
+      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
+    },
+    {
+      "text": "Fifth key highlight or memorable moment",
+      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
+    }
   ],
   "keyTakeaways": [
     "First actionable insight or important point",
@@ -82,6 +166,18 @@ Ensure your response is valid JSON that can be parsed.`,
     // Parse the JSON response
     const analysis = JSON.parse(responseText);
 
+    // Add timestamps to highlights if sentences are available
+    if (sentences && sentences.length > 0) {
+      analysis.highlights = analysis.highlights.map(highlight => {
+        const timestamp = findTimestampForText(highlight.snippet || highlight.text, sentences);
+        return {
+          ...highlight,
+          timestamp: timestamp.formatted,
+          timestampSeconds: timestamp.seconds,
+        };
+      });
+    }
+
     console.log('Analysis completed successfully');
     return analysis;
   } catch (error) {
@@ -109,11 +205,36 @@ export function generateMockAnalysis(transcript) {
     title: 'Podcast Episode Analysis',
     summary: `This podcast episode covers various topics discussed over approximately ${estimatedDuration} minutes. The conversation explores multiple perspectives and insights on the subject matter.`,
     highlights: [
-      'Opening discussion sets the context for the main topic',
-      'In-depth exploration of key concepts and ideas',
-      'Expert insights and personal experiences shared',
-      'Practical examples and real-world applications',
-      'Concluding thoughts and recommendations',
+      {
+        text: 'Opening discussion sets the context for the main topic',
+        snippet: 'Opening discussion',
+        timestamp: '0:00',
+        timestampSeconds: 0,
+      },
+      {
+        text: 'In-depth exploration of key concepts and ideas',
+        snippet: 'key concepts',
+        timestamp: '2:15',
+        timestampSeconds: 135,
+      },
+      {
+        text: 'Expert insights and personal experiences shared',
+        snippet: 'personal experiences',
+        timestamp: '5:30',
+        timestampSeconds: 330,
+      },
+      {
+        text: 'Practical examples and real-world applications',
+        snippet: 'real-world applications',
+        timestamp: '8:45',
+        timestampSeconds: 525,
+      },
+      {
+        text: 'Concluding thoughts and recommendations',
+        snippet: 'recommendations',
+        timestamp: '12:00',
+        timestampSeconds: 720,
+      },
     ],
     keyTakeaways: [
       'Understanding the fundamental principles discussed',

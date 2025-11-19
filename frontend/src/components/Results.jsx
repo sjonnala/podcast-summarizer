@@ -6,6 +6,7 @@ import TranscriptSearch from './TranscriptSearch';
 import SentimentTimeline from './SentimentTimeline';
 import PodcastMetadata from './PodcastMetadata';
 import ExportOptions from './ExportOptions';
+import CostBreakdown from './CostBreakdown';
 
 export default function Results({ data, onReset }) {
   const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences, sentimentAnalysis, sentimentStats, duration, metadata } = data;
@@ -46,6 +47,9 @@ export default function Results({ data, onReset }) {
 
       {/* Export Options */}
       <ExportOptions data={data} />
+
+      {/* Cost Breakdown */}
+      <CostBreakdown data={data} />
 
       {/* Header with title and reset button */}
       <div className="glass-card p-6">

@@ -93,16 +93,25 @@ export default function CostBreakdown({ data }) {
                   <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
                     costData.ai.provider === 'groq'
                       ? 'bg-green-100 text-green-700 border border-green-300'
+                      : costData.ai.provider === 'gemini'
+                      ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                      : costData.ai.provider === 'ollama'
+                      ? 'bg-amber-100 text-amber-700 border border-amber-300'
                       : costData.ai.provider === 'claude'
                       ? 'bg-blue-100 text-blue-700 border border-blue-300'
                       : 'bg-gray-100 text-gray-700 border border-gray-300'
                   }`}>
                     {costData.ai.provider === 'groq' && '⚡ Groq'}
+                    {costData.ai.provider === 'gemini' && '🔮 Gemini'}
+                    {costData.ai.provider === 'ollama' && '🏠 Ollama'}
                     {costData.ai.provider === 'claude' && '🧠 Claude'}
-                    {!['groq', 'claude'].includes(costData.ai.provider) && costData.ai.provider}
+                    {!['groq', 'gemini', 'ollama', 'claude'].includes(costData.ai.provider) && costData.ai.provider}
                   </span>
                   {costData.ai.estimated && (
                     <span className="ml-2 text-xs text-purple-500">(estimated)</span>
+                  )}
+                  {costData.ai.cost === 0 && (costData.ai.provider === 'gemini' || costData.ai.provider === 'ollama') && (
+                    <span className="ml-2 text-xs font-semibold text-green-600">FREE</span>
                   )}
                 </div>
               )}
@@ -110,6 +119,10 @@ export default function CostBreakdown({ data }) {
                 🤖 {costData.ai.model ? (
                   costData.ai.provider === 'groq'
                     ? 'Llama 3.3 70B'
+                    : costData.ai.provider === 'gemini'
+                    ? 'Gemini 2.0 Flash'
+                    : costData.ai.provider === 'ollama'
+                    ? costData.ai.model
                     : costData.ai.model.includes('claude')
                       ? 'Claude 3.5 Sonnet'
                       : costData.ai.model

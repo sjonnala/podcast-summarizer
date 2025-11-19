@@ -1,13 +1,15 @@
 import { extractTranscript } from './transcriptService.js';
-import { analyzeTranscriptMultiProvider, generateMockAnalysis, calculateLLMCost } from './llmService.js';
+import { analyzeWithProvider, analyzeTranscriptMultiProvider, generateMockAnalysis, calculateLLMCost } from './llmService.js';
 import { detectPlatform, extractYouTubeId, getYouTubeThumbnail, generateChapterVTT } from './platformDetector.js';
 
 /**
  * Process a podcast URL: extract transcript and analyze with LLM
  * @param {string} podcastUrl - URL of the podcast
+ * @param {string} llmProvider - LLM provider to use ('auto', 'groq', 'claude', 'gemini', 'ollama')
+ * @param {string} ollamaModel - Ollama model to use (optional)
  * @returns {Promise<Object>} - Complete analysis results
  */
-export async function processPodcast(podcastUrl) {
+export async function processPodcast(podcastUrl, llmProvider = 'auto', ollamaModel = 'llama3.3:70b') {
   try {
     const startTime = Date.now();
 
@@ -69,32 +71,34 @@ export async function processPodcast(podcastUrl) {
 
     console.log(`Transcript extracted: ${transcript.length} characters`);
 
-    // Step 2: Analyze with LLM (multi-provider: Groq → Claude fallback)
-    console.log('Step 2: Analyzing transcript with AI...');
+    // Step 2: Analyze with LLM
+    console.log(`Step 2: Analyzing transcript with AI (provider: ${llmProvider})...`);
     let analysisResult;
-    let llmProvider = 'unknown';
-    let llmModel = 'unknown';
+    let usedProvider = 'unknown';
+    let usedModel = 'unknown';
     let llmUsage = {};
     let llmCost = 0;
 
     try {
-      analysisResult = await analyzeTranscriptMultiProvider(
+      analysisResult = await analyzeWithProvider(
+        llmProvider,
         transcript,
         transcriptData.sentences || [],
-        transcriptData.utterances || []
+        transcriptData.utterances || [],
+        ollamaModel
       );
 
       // Extract provider info
-      llmProvider = analysisResult.provider;
-      llmModel = analysisResult.model;
+      usedProvider = analysisResult.provider;
+      usedModel = analysisResult.model;
       llmUsage = analysisResult.usage;
-      llmCost = calculateLLMCost(llmProvider, llmUsage);
+      llmCost = calculateLLMCost(usedProvider, llmUsage);
 
     } catch (error) {
       console.error('LLM analysis failed:', error.message);
 
       // For demo purposes, if APIs are not configured, use mock analysis
-      if (error.message.includes('not configured')) {
+      if (error.message.includes('not configured') || error.message.includes('not running')) {
         console.log('Using mock analysis for demo purposes...');
         analysisResult = {
           analysis: generateMockAnalysis(transcript),
@@ -102,6 +106,8 @@ export async function processPodcast(podcastUrl) {
           model: 'mock',
           usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         };
+        usedProvider = 'mock';
+        usedModel = 'mock';
       } else {
         throw error;
       }
@@ -111,7 +117,7 @@ export async function processPodcast(podcastUrl) {
     const processingTime = ((endTime - startTime) / 1000).toFixed(2);
 
     console.log(`Processing completed in ${processingTime} seconds`);
-    console.log(`LLM Provider: ${llmProvider} (${llmModel})`);
+    console.log(`LLM Provider: ${usedProvider} (${usedModel})`);
     console.log(`LLM Cost: $${llmCost.toFixed(6)}`);
 
     // Extract analysis from result
@@ -143,8 +149,8 @@ export async function processPodcast(podcastUrl) {
       metadata: metadata,
       analysis,
       llmProvider: {
-        provider: llmProvider,
-        model: llmModel,
+        provider: usedProvider,
+        model: usedModel,
         usage: llmUsage,
         cost: llmCost,
       },

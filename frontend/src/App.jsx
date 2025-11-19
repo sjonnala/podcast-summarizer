@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import PodcastInput from './components/PodcastInput';
 import LoadingState from './components/LoadingState';
 import Results from './components/Results';
 import ErrorMessage from './components/ErrorMessage';
 import EpisodeLibrary from './components/EpisodeLibrary';
+import ProviderSelector from './components/ProviderSelector';
 import { processPodcast } from './services/api';
 import { saveEpisode } from './utils/storageService';
 
@@ -14,6 +15,20 @@ function App() {
   const [results, setResults] = useState(null);
   const [showLibrary, setShowLibrary] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState('auto');
+
+  // Load saved provider preference
+  useEffect(() => {
+    const savedProvider = localStorage.getItem('llmProvider');
+    if (savedProvider) {
+      setSelectedProvider(savedProvider);
+    }
+  }, []);
+
+  const handleProviderChange = (provider) => {
+    setSelectedProvider(provider);
+    localStorage.setItem('llmProvider', provider);
+  };
 
   const handleSubmit = async (url) => {
     setLoading(true);
@@ -21,7 +36,7 @@ function App() {
     setResults(null);
 
     try {
-      const data = await processPodcast(url);
+      const data = await processPodcast(url, selectedProvider);
       setResults(data);
     } catch (err) {
       setError(err.message || 'Failed to process podcast. Please try again.');
@@ -56,6 +71,13 @@ function App() {
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         {!loading && !results && (
           <div className="max-w-2xl mx-auto">
+            {/* Provider Selector */}
+            <ProviderSelector
+              selectedProvider={selectedProvider}
+              onProviderChange={handleProviderChange}
+              disabled={loading}
+            />
+
             <PodcastInput onSubmit={handleSubmit} disabled={loading} />
             {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
 

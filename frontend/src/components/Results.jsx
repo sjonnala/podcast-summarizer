@@ -9,6 +9,7 @@ import ExportOptions from './ExportOptions';
 import CostBreakdown from './CostBreakdown';
 import BookmarkManager from './BookmarkManager';
 import QuoteCard from './QuoteCard';
+import QuickDigest from './QuickDigest';
 
 export default function Results({ data, onReset, onSave, saved }) {
   const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences, sentimentAnalysis, sentimentStats, duration, metadata } = data;
@@ -38,6 +39,9 @@ export default function Results({ data, onReset, onSave, saved }) {
     <div className="space-y-6 animate-fade-in">
       {/* Podcast Metadata - show platform and artwork */}
       <PodcastMetadata metadata={metadata} analysis={analysis} />
+
+      {/* Quick Digest - 5-minute TL;DR for busy professionals */}
+      <QuickDigest data={data} onSeekTo={handleTimestampClick} />
 
       {/* Audio Player - only show if we have a valid audio URL */}
       {audioUrl && (

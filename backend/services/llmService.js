@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { generateAnalysisPrompt } from './promptTemplate.js';
 
 /**
  * Helper function to find speaker for a given timestamp
@@ -112,68 +113,7 @@ export async function analyzeTranscript(transcript, sentences = [], utterances =
       messages: [
         {
           role: 'user',
-          content: `You are an expert podcast analyst. Analyze the following podcast transcript and provide a comprehensive summary.
-
-Transcript:
-${transcript}
-
-Please provide your analysis in the following JSON format (respond ONLY with valid JSON, no additional text):
-
-{
-  "title": "A suggested title for this podcast episode based on the content",
-  "summary": "A brief 2-3 sentence overview of the podcast",
-  "highlights": [
-    {
-      "text": "First key highlight or memorable moment",
-      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
-    },
-    {
-      "text": "Second key highlight or memorable moment",
-      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
-    },
-    {
-      "text": "Third key highlight or memorable moment",
-      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
-    },
-    {
-      "text": "Fourth key highlight or memorable moment",
-      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
-    },
-    {
-      "text": "Fifth key highlight or memorable moment",
-      "snippet": "A short exact quote or phrase from the transcript that represents this highlight"
-    }
-  ],
-  "keyTakeaways": [
-    "First actionable insight or important point",
-    "Second actionable insight or important point",
-    "Third actionable insight or important point",
-    "Fourth actionable insight or important point",
-    "Fifth actionable insight or important point"
-  ],
-  "similarTopics": [
-    {
-      "topic": "Related topic or concept",
-      "description": "Brief explanation of how it relates"
-    },
-    {
-      "topic": "Another related topic",
-      "description": "Brief explanation of how it relates"
-    },
-    {
-      "topic": "Third related topic",
-      "description": "Brief explanation of how it relates"
-    }
-  ],
-  "followUps": [
-    "Suggested question or topic to explore further",
-    "Another question or area for deeper investigation",
-    "Third suggestion for continued learning"
-  ],
-  "tags": ["topic1", "topic2", "topic3", "topic4", "topic5"]
-}
-
-Ensure your response is valid JSON that can be parsed.`,
+          content: generateAnalysisPrompt(transcript),
         },
       ],
     });

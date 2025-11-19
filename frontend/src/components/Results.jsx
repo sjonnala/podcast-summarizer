@@ -2,9 +2,10 @@ import { useState } from 'react';
 import AudioPlayer from './AudioPlayer';
 import ChapterNavigation from './ChapterNavigation';
 import SpeakerStats from './SpeakerStats';
+import TranscriptSearch from './TranscriptSearch';
 
 export default function Results({ data, onReset }) {
-  const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats } = data;
+  const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences } = data;
   const [seekToTime, setSeekToTime] = useState(null);
 
   const handleTimestampClick = (seconds) => {
@@ -25,6 +26,9 @@ export default function Results({ data, onReset }) {
 
       {/* Speaker Statistics - only show if speaker data is available */}
       <SpeakerStats speakerStats={speakerStats} utterances={utterances} />
+
+      {/* Transcript Search - only show if sentences are available */}
+      <TranscriptSearch sentences={sentences} onTimestampClick={handleTimestampClick} />
 
       {/* Header with title and reset button */}
       <div className="glass-card p-6">

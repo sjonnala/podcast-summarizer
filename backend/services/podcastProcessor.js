@@ -74,6 +74,7 @@ export async function processPodcast(podcastUrl) {
       transcript: transcript.substring(0, 1000) + (transcript.length > 1000 ? '...' : ''), // First 1000 chars
       transcriptLength: transcript.length,
       chapters: transcriptData.chapters || [],
+      sentences: transcriptData.sentences || [], // Include for search functionality
       utterances: transcriptData.utterances || [],
       speakerStats: transcriptData.speakerStats || [],
       analysis,

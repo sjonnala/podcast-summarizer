@@ -22,6 +22,32 @@ const PRICING = {
       output: 1.25,  // $1.25 per million output tokens
     },
   },
+
+  // Groq pricing (per million tokens) - Llama 3.3 70B
+  groq: {
+    'llama-3.3-70b-versatile': {
+      input: 0.59,   // $0.59 per million input tokens
+      output: 0.79,  // $0.79 per million output tokens
+    },
+    'llama-3.1-70b-versatile': {
+      input: 0.59,
+      output: 0.79,
+    },
+  },
+
+  // Gemini pricing (per million tokens) - Gemini 2.0 Flash
+  gemini: {
+    'gemini-2.0-flash-exp': {
+      input: 0.075,  // $0.075 per million input tokens (over 128K)
+      output: 0.30,  // $0.30 per million output tokens (over 128K)
+      freeLimit: 128000, // FREE up to 128K tokens
+    },
+  },
+
+  // Ollama - Local processing (always free)
+  ollama: {
+    cost: 0, // Free
+  },
 };
 
 /**
@@ -48,7 +74,62 @@ export function calculateTranscriptionCost(durationSeconds) {
 }
 
 /**
- * Estimate Claude AI cost based on transcript length
+ * Calculate LLM cost from actual usage data (if available from backend)
+ * @param {Object} llmProvider - LLM provider info from backend
+ * @returns {Object} - Cost breakdown
+ */
+export function calculateLLMCostFromUsage(llmProvider) {
+  if (!llmProvider || !llmProvider.provider || !llmProvider.usage) {
+    return { cost: 0, details: 'No LLM data available', estimated: true };
+  }
+
+  const { provider, model, usage } = llmProvider;
+  const { promptTokens, completionTokens, totalTokens } = usage;
+
+  let pricing, totalCost;
+
+  if (provider === 'groq') {
+    pricing = PRICING.groq[model] || PRICING.groq['llama-3.3-70b-versatile'];
+    const inputCost = (promptTokens / 1_000_000) * pricing.input;
+    const outputCost = (completionTokens / 1_000_000) * pricing.output;
+    totalCost = inputCost + outputCost;
+  } else if (provider === 'claude') {
+    pricing = PRICING.claude[model] || PRICING.claude['claude-3-5-sonnet-20241022'];
+    const inputCost = (promptTokens / 1_000_000) * pricing.input;
+    const outputCost = (completionTokens / 1_000_000) * pricing.output;
+    totalCost = inputCost + outputCost;
+  } else if (provider === 'gemini') {
+    pricing = PRICING.gemini[model] || PRICING.gemini['gemini-2.0-flash-exp'];
+    // Gemini is FREE up to 128K tokens
+    if (totalTokens < pricing.freeLimit) {
+      totalCost = 0;
+    } else {
+      const inputCost = (promptTokens / 1_000_000) * pricing.input;
+      const outputCost = (completionTokens / 1_000_000) * pricing.output;
+      totalCost = inputCost + outputCost;
+    }
+  } else if (provider === 'ollama') {
+    totalCost = 0; // Ollama is always free
+  } else {
+    return { cost: 0, details: 'Unknown provider', estimated: true };
+  }
+
+  return {
+    cost: totalCost,
+    formatted: `$${totalCost.toFixed(6)}`,
+    inputTokens: promptTokens,
+    outputTokens: completionTokens,
+    details: totalCost === 0 && (provider === 'gemini' || provider === 'ollama')
+      ? `${promptTokens.toLocaleString()} input + ${completionTokens.toLocaleString()} output tokens (FREE)`
+      : `${promptTokens.toLocaleString()} input + ${completionTokens.toLocaleString()} output tokens`,
+    model: model,
+    provider: provider,
+    estimated: false,
+  };
+}
+
+/**
+ * Estimate Claude AI cost based on transcript length (fallback)
  * @param {number} transcriptLength - Character length of transcript
  * @param {string} model - Model name
  * @returns {Object} - Cost breakdown
@@ -77,6 +158,7 @@ export function estimateClaudeCost(transcriptLength, model = 'claude-3-5-sonnet-
     outputTokens: estimatedOutputTokens,
     details: `~${estimatedInputTokens.toLocaleString()} input + ~${estimatedOutputTokens.toLocaleString()} output tokens`,
     model: model,
+    estimated: true,
   };
 }
 
@@ -86,21 +168,28 @@ export function estimateClaudeCost(transcriptLength, model = 'claude-3-5-sonnet-
  * @returns {Object} - Complete cost breakdown
  */
 export function calculateTotalCost(data) {
-  const { duration, transcriptLength } = data;
+  const { duration, transcriptLength, llmProvider } = data;
 
   const transcriptionCost = calculateTranscriptionCost(duration);
-  const aiCost = estimateClaudeCost(transcriptLength);
+
+  // Use actual LLM usage if available, otherwise estimate
+  let aiCost;
+  if (llmProvider && llmProvider.provider) {
+    aiCost = calculateLLMCostFromUsage(llmProvider);
+  } else {
+    aiCost = estimateClaudeCost(transcriptLength);
+  }
 
   const total = transcriptionCost.cost + aiCost.cost;
 
   return {
     total: total,
-    totalFormatted: `$${total.toFixed(4)}`,
+    totalFormatted: `$${total.toFixed(6)}`,
     transcription: transcriptionCost,
     ai: aiCost,
     breakdown: {
-      transcriptionPercent: ((transcriptionCost.cost / total) * 100).toFixed(1),
-      aiPercent: ((aiCost.cost / total) * 100).toFixed(1),
+      transcriptionPercent: total > 0 ? ((transcriptionCost.cost / total) * 100).toFixed(1) : 0,
+      aiPercent: total > 0 ? ((aiCost.cost / total) * 100).toFixed(1) : 0,
     },
   };
 }
@@ -113,8 +202,40 @@ export function calculateTotalCost(data) {
 export function getCostSavingTips(costData) {
   const tips = [];
 
-  // High AI cost tips
-  if (costData.ai && costData.ai.cost > 0.01) {
+  // Suggest free options if using Claude or Groq
+  if (costData.ai && costData.ai.provider === 'claude') {
+    tips.push({
+      icon: '⚡',
+      title: 'Switch to Groq, Gemini, or Ollama',
+      description: 'Try Groq (80-90% cheaper), Gemini (FREE tier), or Ollama (100% free & private). Select provider before processing.',
+      savings: 'Save 80-100% on AI processing',
+    });
+  }
+
+  // Celebrate free options
+  if (costData.ai && (costData.ai.provider === 'gemini' || costData.ai.provider === 'ollama')) {
+    tips.push({
+      icon: '🎉',
+      title: `You're using ${costData.ai.provider === 'gemini' ? 'Gemini' : 'Ollama'} - zero cost!`,
+      description: costData.ai.provider === 'gemini'
+        ? 'Gemini offers a generous free tier. You\'re saving 100% on AI costs!'
+        : 'Ollama runs locally with complete privacy. You\'re saving 100% on AI costs!',
+      savings: 'Currently at ZERO cost for AI',
+    });
+  }
+
+  // Already using Groq - celebrate!
+  if (costData.ai && costData.ai.provider === 'groq') {
+    tips.push({
+      icon: '✅',
+      title: 'You\'re using Groq - great choice!',
+      description: 'You\'re saving 80-90% on AI costs compared to Claude. For zero cost, try Gemini (free tier) or Ollama (local).',
+      savings: 'Currently saving 80-90% on AI costs',
+    });
+  }
+
+  // High AI cost tips (for other cases)
+  if (costData.ai && costData.ai.cost > 0.01 && costData.ai.provider !== 'groq') {
     tips.push({
       icon: '💡',
       title: 'Use Claude Haiku for simpler analysis',

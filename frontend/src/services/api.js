@@ -5,12 +5,16 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 /**
  * Process a podcast URL and get AI analysis
  * @param {string} podcastUrl - URL of the podcast to process
+ * @param {string} llmProvider - LLM provider to use ('auto', 'groq', 'claude', 'gemini', 'ollama')
+ * @param {string} ollamaModel - Ollama model to use (optional)
  * @returns {Promise<Object>} - Analysis results
  */
-export async function processPodcast(podcastUrl) {
+export async function processPodcast(podcastUrl, llmProvider = 'auto', ollamaModel = 'llama3.3:70b') {
   try {
     const response = await axios.post(`${API_BASE_URL}/api/process-podcast`, {
       podcastUrl,
+      llmProvider,
+      ollamaModel,
     });
 
     return response.data;

@@ -1,5 +1,6 @@
 import { extractTranscript } from './transcriptService.js';
 import { analyzeTranscript, generateMockAnalysis } from './llmService.js';
+import { detectPlatform, extractYouTubeId, getYouTubeThumbnail, generateChapterVTT } from './platformDetector.js';
 
 /**
  * Process a podcast URL: extract transcript and analyze with LLM
@@ -9,6 +10,27 @@ import { analyzeTranscript, generateMockAnalysis } from './llmService.js';
 export async function processPodcast(podcastUrl) {
   try {
     const startTime = Date.now();
+
+    // Detect platform and extract metadata
+    const platformInfo = detectPlatform(podcastUrl);
+    console.log(`Detected platform: ${platformInfo.name}`);
+
+    // Extract metadata based on platform
+    const metadata = {
+      platform: platformInfo,
+      thumbnail: null,
+      title: null,
+      author: null,
+    };
+
+    // For YouTube, extract video ID and thumbnail
+    if (platformInfo.platform === 'youtube') {
+      const videoId = extractYouTubeId(podcastUrl);
+      if (videoId) {
+        metadata.thumbnail = getYouTubeThumbnail(videoId);
+        metadata.videoId = videoId;
+      }
+    }
 
     // Step 1: Extract transcript
     console.log('Step 1: Extracting transcript...');
@@ -74,6 +96,14 @@ export async function processPodcast(podcastUrl) {
 
     console.log(`Processing completed in ${processingTime} seconds`);
 
+    // Update metadata with analysis title if available
+    if (analysis && analysis.title) {
+      metadata.title = analysis.title;
+    }
+
+    // Generate chapter VTT for audio player
+    const chapterVTT = generateChapterVTT(transcriptData.chapters || []);
+
     // Return complete results
     return {
       success: true,
@@ -83,11 +113,13 @@ export async function processPodcast(podcastUrl) {
       transcript: transcript.substring(0, 1000) + (transcript.length > 1000 ? '...' : ''), // First 1000 chars
       transcriptLength: transcript.length,
       chapters: transcriptData.chapters || [],
+      chapterVTT: chapterVTT,
       sentences: transcriptData.sentences || [], // Include for search functionality
       utterances: transcriptData.utterances || [],
       speakerStats: transcriptData.speakerStats || [],
       sentimentAnalysis: transcriptData.sentimentAnalysis || [],
       sentimentStats: transcriptData.sentimentStats || { positive: 0, negative: 0, neutral: 0 },
+      metadata: metadata,
       analysis,
       processingTime: `${processingTime}s`,
       timestamp: new Date().toISOString(),

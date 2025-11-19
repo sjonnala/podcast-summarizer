@@ -4,9 +4,10 @@ import ChapterNavigation from './ChapterNavigation';
 import SpeakerStats from './SpeakerStats';
 import TranscriptSearch from './TranscriptSearch';
 import SentimentTimeline from './SentimentTimeline';
+import PodcastMetadata from './PodcastMetadata';
 
 export default function Results({ data, onReset }) {
-  const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences, sentimentAnalysis, sentimentStats, duration } = data;
+  const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences, sentimentAnalysis, sentimentStats, duration, metadata } = data;
   const [seekToTime, setSeekToTime] = useState(null);
 
   const handleTimestampClick = (seconds) => {
@@ -17,9 +18,12 @@ export default function Results({ data, onReset }) {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Podcast Metadata - show platform and artwork */}
+      <PodcastMetadata metadata={metadata} analysis={analysis} />
+
       {/* Audio Player - only show if we have a valid audio URL */}
       {audioUrl && (
-        <AudioPlayer audioUrl={audioUrl} currentTime={seekToTime} />
+        <AudioPlayer audioUrl={audioUrl} currentTime={seekToTime} chapters={chapters} />
       )}
 
       {/* Chapter Navigation - only show if chapters are available */}

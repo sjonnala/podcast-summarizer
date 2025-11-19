@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AudioPlayer from './AudioPlayer';
 import ChapterNavigation from './ChapterNavigation';
 import SpeakerStats from './SpeakerStats';
@@ -7,10 +7,26 @@ import SentimentTimeline from './SentimentTimeline';
 import PodcastMetadata from './PodcastMetadata';
 import ExportOptions from './ExportOptions';
 import CostBreakdown from './CostBreakdown';
+import BookmarkManager from './BookmarkManager';
+import QuoteCard from './QuoteCard';
 
-export default function Results({ data, onReset }) {
+export default function Results({ data, onReset, onSave, saved }) {
   const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences, sentimentAnalysis, sentimentStats, duration, metadata } = data;
   const [seekToTime, setSeekToTime] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [selectedQuote, setSelectedQuote] = useState(null);
+  const [episodeId, setEpisodeId] = useState(null);
+
+  // Generate episode ID
+  useEffect(() => {
+    const id = generateEpisodeId(data);
+    setEpisodeId(id);
+  }, [data]);
+
+  const generateEpisodeId = (episodeData) => {
+    const base = episodeData.podcastUrl || episodeData.analysis?.title || '';
+    return btoa(base).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+  };
 
   const handleTimestampClick = (seconds) => {
     setSeekToTime(seconds);
@@ -25,7 +41,12 @@ export default function Results({ data, onReset }) {
 
       {/* Audio Player - only show if we have a valid audio URL */}
       {audioUrl && (
-        <AudioPlayer audioUrl={audioUrl} currentTime={seekToTime} chapters={chapters} />
+        <AudioPlayer
+          audioUrl={audioUrl}
+          currentTime={seekToTime}
+          chapters={chapters}
+          onTimeUpdate={setCurrentTime}
+        />
       )}
 
       {/* Chapter Navigation - only show if chapters are available */}
@@ -50,6 +71,23 @@ export default function Results({ data, onReset }) {
 
       {/* Cost Breakdown */}
       <CostBreakdown data={data} />
+
+      {/* Bookmark Manager */}
+      <BookmarkManager
+        episodeId={episodeId}
+        currentTime={currentTime}
+        onJumpToTime={handleTimestampClick}
+      />
+
+      {/* Quote Modal */}
+      {selectedQuote && (
+        <QuoteCard
+          highlight={selectedQuote}
+          episodeTitle={analysis.title}
+          metadata={metadata}
+          onClose={() => setSelectedQuote(null)}
+        />
+      )}
 
       {/* Header with title and reset button */}
       <div className="glass-card p-6">
@@ -82,15 +120,34 @@ export default function Results({ data, onReset }) {
               )}
             </div>
           </div>
-          <button
-            onClick={onReset}
-            className="ml-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center space-x-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>New Analysis</span>
-          </button>
+          <div className="flex items-center space-x-2 ml-4">
+            <button
+              onClick={onSave}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                saved
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {saved ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                )}
+              </svg>
+              <span>{saved ? 'Saved!' : 'Save to Library'}</span>
+            </button>
+            <button
+              onClick={onReset}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>New Analysis</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -148,6 +205,16 @@ export default function Results({ data, onReset }) {
                         Jump to {timestamp}
                       </button>
                     )}
+                    <button
+                      onClick={() => setSelectedQuote(highlight)}
+                      className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium hover:bg-purple-200 transition-colors"
+                      title="Share as quote"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
+                      </svg>
+                      Share Quote
+                    </button>
                   </div>
                 </div>
               </li>

@@ -22,6 +22,18 @@ const PRICING = {
       output: 1.25,  // $1.25 per million output tokens
     },
   },
+
+  // Groq pricing (per million tokens) - Llama 3.3 70B
+  groq: {
+    'llama-3.3-70b-versatile': {
+      input: 0.59,   // $0.59 per million input tokens
+      output: 0.79,  // $0.79 per million output tokens
+    },
+    'llama-3.1-70b-versatile': {
+      input: 0.59,
+      output: 0.79,
+    },
+  },
 };
 
 /**
@@ -48,7 +60,45 @@ export function calculateTranscriptionCost(durationSeconds) {
 }
 
 /**
- * Estimate Claude AI cost based on transcript length
+ * Calculate LLM cost from actual usage data (if available from backend)
+ * @param {Object} llmProvider - LLM provider info from backend
+ * @returns {Object} - Cost breakdown
+ */
+export function calculateLLMCostFromUsage(llmProvider) {
+  if (!llmProvider || !llmProvider.provider || !llmProvider.usage) {
+    return { cost: 0, details: 'No LLM data available', estimated: true };
+  }
+
+  const { provider, model, usage } = llmProvider;
+  const { promptTokens, completionTokens } = usage;
+
+  let pricing;
+  if (provider === 'groq') {
+    pricing = PRICING.groq[model] || PRICING.groq['llama-3.3-70b-versatile'];
+  } else if (provider === 'claude') {
+    pricing = PRICING.claude[model] || PRICING.claude['claude-3-5-sonnet-20241022'];
+  } else {
+    return { cost: 0, details: 'Unknown provider', estimated: true };
+  }
+
+  const inputCost = (promptTokens / 1_000_000) * pricing.input;
+  const outputCost = (completionTokens / 1_000_000) * pricing.output;
+  const totalCost = inputCost + outputCost;
+
+  return {
+    cost: totalCost,
+    formatted: `$${totalCost.toFixed(6)}`,
+    inputTokens: promptTokens,
+    outputTokens: completionTokens,
+    details: `${promptTokens.toLocaleString()} input + ${completionTokens.toLocaleString()} output tokens`,
+    model: model,
+    provider: provider,
+    estimated: false,
+  };
+}
+
+/**
+ * Estimate Claude AI cost based on transcript length (fallback)
  * @param {number} transcriptLength - Character length of transcript
  * @param {string} model - Model name
  * @returns {Object} - Cost breakdown
@@ -77,6 +127,7 @@ export function estimateClaudeCost(transcriptLength, model = 'claude-3-5-sonnet-
     outputTokens: estimatedOutputTokens,
     details: `~${estimatedInputTokens.toLocaleString()} input + ~${estimatedOutputTokens.toLocaleString()} output tokens`,
     model: model,
+    estimated: true,
   };
 }
 
@@ -86,21 +137,28 @@ export function estimateClaudeCost(transcriptLength, model = 'claude-3-5-sonnet-
  * @returns {Object} - Complete cost breakdown
  */
 export function calculateTotalCost(data) {
-  const { duration, transcriptLength } = data;
+  const { duration, transcriptLength, llmProvider } = data;
 
   const transcriptionCost = calculateTranscriptionCost(duration);
-  const aiCost = estimateClaudeCost(transcriptLength);
+
+  // Use actual LLM usage if available, otherwise estimate
+  let aiCost;
+  if (llmProvider && llmProvider.provider) {
+    aiCost = calculateLLMCostFromUsage(llmProvider);
+  } else {
+    aiCost = estimateClaudeCost(transcriptLength);
+  }
 
   const total = transcriptionCost.cost + aiCost.cost;
 
   return {
     total: total,
-    totalFormatted: `$${total.toFixed(4)}`,
+    totalFormatted: `$${total.toFixed(6)}`,
     transcription: transcriptionCost,
     ai: aiCost,
     breakdown: {
-      transcriptionPercent: ((transcriptionCost.cost / total) * 100).toFixed(1),
-      aiPercent: ((aiCost.cost / total) * 100).toFixed(1),
+      transcriptionPercent: total > 0 ? ((transcriptionCost.cost / total) * 100).toFixed(1) : 0,
+      aiPercent: total > 0 ? ((aiCost.cost / total) * 100).toFixed(1) : 0,
     },
   };
 }
@@ -113,8 +171,28 @@ export function calculateTotalCost(data) {
 export function getCostSavingTips(costData) {
   const tips = [];
 
-  // High AI cost tips
-  if (costData.ai && costData.ai.cost > 0.01) {
+  // Groq tip if using Claude
+  if (costData.ai && costData.ai.provider === 'claude') {
+    tips.push({
+      icon: '⚡',
+      title: 'Switch to Groq for 80-90% cost savings',
+      description: 'Groq with Llama 3.3 70B is 10-20x cheaper than Claude with similar quality. Set GROQ_API_KEY in .env to enable automatic switching.',
+      savings: 'Save 80-90% on AI processing',
+    });
+  }
+
+  // Already using Groq - celebrate!
+  if (costData.ai && costData.ai.provider === 'groq') {
+    tips.push({
+      icon: '✅',
+      title: 'You\'re using Groq - great choice!',
+      description: 'You\'re saving 80-90% on AI costs compared to Claude. Groq offers similar quality at a fraction of the price.',
+      savings: 'Currently saving maximum on AI costs',
+    });
+  }
+
+  // High AI cost tips (for other cases)
+  if (costData.ai && costData.ai.cost > 0.01 && costData.ai.provider !== 'groq') {
     tips.push({
       icon: '💡',
       title: 'Use Claude Haiku for simpler analysis',

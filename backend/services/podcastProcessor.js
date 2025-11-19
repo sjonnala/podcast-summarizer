@@ -1,5 +1,5 @@
 import { extractTranscript } from './transcriptService.js';
-import { analyzeTranscript, generateMockAnalysis } from './llmService.js';
+import { analyzeTranscriptMultiProvider, generateMockAnalysis, calculateLLMCost } from './llmService.js';
 import { detectPlatform, extractYouTubeId, getYouTubeThumbnail, generateChapterVTT } from './platformDetector.js';
 
 /**
@@ -69,23 +69,39 @@ export async function processPodcast(podcastUrl) {
 
     console.log(`Transcript extracted: ${transcript.length} characters`);
 
-    // Step 2: Analyze with LLM
+    // Step 2: Analyze with LLM (multi-provider: Groq → Claude fallback)
     console.log('Step 2: Analyzing transcript with AI...');
-    let analysis;
+    let analysisResult;
+    let llmProvider = 'unknown';
+    let llmModel = 'unknown';
+    let llmUsage = {};
+    let llmCost = 0;
 
     try {
-      analysis = await analyzeTranscript(
+      analysisResult = await analyzeTranscriptMultiProvider(
         transcript,
         transcriptData.sentences || [],
         transcriptData.utterances || []
       );
+
+      // Extract provider info
+      llmProvider = analysisResult.provider;
+      llmModel = analysisResult.model;
+      llmUsage = analysisResult.usage;
+      llmCost = calculateLLMCost(llmProvider, llmUsage);
+
     } catch (error) {
       console.error('LLM analysis failed:', error.message);
 
-      // For demo purposes, if Anthropic API is not configured, use mock analysis
+      // For demo purposes, if APIs are not configured, use mock analysis
       if (error.message.includes('not configured')) {
         console.log('Using mock analysis for demo purposes...');
-        analysis = generateMockAnalysis(transcript);
+        analysisResult = {
+          analysis: generateMockAnalysis(transcript),
+          provider: 'mock',
+          model: 'mock',
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        };
       } else {
         throw error;
       }
@@ -95,6 +111,11 @@ export async function processPodcast(podcastUrl) {
     const processingTime = ((endTime - startTime) / 1000).toFixed(2);
 
     console.log(`Processing completed in ${processingTime} seconds`);
+    console.log(`LLM Provider: ${llmProvider} (${llmModel})`);
+    console.log(`LLM Cost: $${llmCost.toFixed(6)}`);
+
+    // Extract analysis from result
+    const analysis = analysisResult.analysis;
 
     // Update metadata with analysis title if available
     if (analysis && analysis.title) {
@@ -121,6 +142,12 @@ export async function processPodcast(podcastUrl) {
       sentimentStats: transcriptData.sentimentStats || { positive: 0, negative: 0, neutral: 0 },
       metadata: metadata,
       analysis,
+      llmProvider: {
+        provider: llmProvider,
+        model: llmModel,
+        usage: llmUsage,
+        cost: llmCost,
+      },
       processingTime: `${processingTime}s`,
       timestamp: new Date().toISOString(),
     };

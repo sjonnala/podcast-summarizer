@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
  * @param {Array} utterances - Array of utterances with speaker labels
  * @returns {string|null} - Speaker label or null
  */
-function findSpeakerAtTimestamp(timestampMs, utterances) {
+export function findSpeakerAtTimestamp(timestampMs, utterances) {
   if (!utterances || utterances.length === 0) {
     return null;
   }
@@ -22,7 +22,7 @@ function findSpeakerAtTimestamp(timestampMs, utterances) {
  * @param {Array} sentences - Array of sentences with timestamps
  * @returns {Object} - Timestamp object with formatted and seconds
  */
-function findTimestampForText(snippet, sentences) {
+export function findTimestampForText(snippet, sentences) {
   if (!snippet || !sentences || sentences.length === 0) {
     return { formatted: '00:00', seconds: 0 };
   }
@@ -68,7 +68,7 @@ function findTimestampForText(snippet, sentences) {
  * @param {number} ms - Milliseconds
  * @returns {Object} - Formatted timestamp
  */
-function formatTimestamp(ms) {
+export function formatTimestamp(ms) {
   const seconds = Math.floor(ms / 1000);
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -211,6 +211,75 @@ Ensure your response is valid JSON that can be parsed.`,
 
     throw new Error(`Failed to analyze transcript: ${error.message}`);
   }
+}
+
+/**
+ * Analyze transcript with multi-provider support (Groq → Claude fallback)
+ * @param {string} transcript - The podcast transcript
+ * @param {Array} sentences - Array of sentences with timestamps from AssemblyAI
+ * @param {Array} utterances - Array of utterances with speaker labels from AssemblyAI
+ * @returns {Promise<Object>} - Analysis results with provider info
+ */
+export async function analyzeTranscriptMultiProvider(transcript, sentences = [], utterances = []) {
+  const useGroq = process.env.USE_GROQ !== 'false'; // Default to true unless explicitly disabled
+  const groqApiKey = process.env.GROQ_API_KEY;
+
+  // Try Groq first if enabled and API key is available
+  if (useGroq && groqApiKey) {
+    try {
+      console.log('Attempting analysis with Groq...');
+      const { analyzeWithGroq } = await import('./groqService.js');
+      const result = await analyzeWithGroq(transcript, sentences, utterances);
+      console.log(`✓ Successfully used Groq (${result.processingTime}ms)`);
+      return result;
+    } catch (error) {
+      console.warn('Groq analysis failed, falling back to Claude:', error.message);
+      // Continue to Claude fallback
+    }
+  }
+
+  // Fallback to Claude
+  console.log('Using Claude AI...');
+  const startTime = Date.now();
+  const analysis = await analyzeTranscript(transcript, sentences, utterances);
+  const processingTime = Date.now() - startTime;
+
+  return {
+    analysis,
+    provider: 'claude',
+    model: 'claude-3-5-sonnet-20241022',
+    processingTime,
+    usage: {
+      // Claude doesn't provide token counts in the same way, estimate based on text length
+      promptTokens: Math.ceil(transcript.length / 4),
+      completionTokens: Math.ceil(JSON.stringify(analysis).length / 4),
+      totalTokens: Math.ceil((transcript.length + JSON.stringify(analysis).length) / 4),
+    },
+  };
+}
+
+/**
+ * Calculate cost based on provider and usage
+ * @param {string} provider - The provider used ('groq' or 'claude')
+ * @param {Object} usage - Usage object with token counts
+ * @returns {number} - Cost in USD
+ */
+export function calculateLLMCost(provider, usage) {
+  if (provider === 'groq') {
+    const inputCostPer1M = 0.59;
+    const outputCostPer1M = 0.79;
+    const inputCost = (usage.promptTokens / 1_000_000) * inputCostPer1M;
+    const outputCost = (usage.completionTokens / 1_000_000) * outputCostPer1M;
+    return inputCost + outputCost;
+  } else if (provider === 'claude') {
+    // Claude 3.5 Sonnet pricing
+    const inputCostPer1M = 3.0;
+    const outputCostPer1M = 15.0;
+    const inputCost = (usage.promptTokens / 1_000_000) * inputCostPer1M;
+    const outputCost = (usage.completionTokens / 1_000_000) * outputCostPer1M;
+    return inputCost + outputCost;
+  }
+  return 0;
 }
 
 /**

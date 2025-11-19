@@ -6,6 +6,7 @@ export default function EpisodeLibrary({ onLoadEpisode, onClose }) {
   const [stats, setStats] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // grid or list
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   useEffect(() => {
     loadData();
@@ -19,11 +20,26 @@ export default function EpisodeLibrary({ onLoadEpisode, onClose }) {
 
   const handleSearch = (query) => {
     setSearchQuery(query);
+    setSelectedCategory('all'); // Reset category filter when searching
     if (query.trim()) {
       const results = searchEpisodes(query);
       setEpisodes(results);
     } else {
       setEpisodes(getSavedEpisodes());
+    }
+  };
+
+  const handleCategoryFilter = (category) => {
+    setSelectedCategory(category);
+    setSearchQuery(''); // Clear search when filtering by category
+    const saved = getSavedEpisodes();
+    if (category === 'all') {
+      setEpisodes(saved);
+    } else {
+      const filtered = saved.filter(episode =>
+        episode.data?.analysis?.categories?.primary === category
+      );
+      setEpisodes(filtered);
     }
   };
 
@@ -39,6 +55,20 @@ export default function EpisodeLibrary({ onLoadEpisode, onClose }) {
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     return `${mins} min`;
+  };
+
+  const getCategoryBadgeColor = (category) => {
+    const colors = {
+      technology: 'bg-blue-100 text-blue-700 border-blue-300',
+      business: 'bg-purple-100 text-purple-700 border-purple-300',
+      finance: 'bg-green-100 text-green-700 border-green-300',
+      personal_development: 'bg-pink-100 text-pink-700 border-pink-300',
+      health: 'bg-red-100 text-red-700 border-red-300',
+      science: 'bg-cyan-100 text-cyan-700 border-cyan-300',
+      education: 'bg-indigo-100 text-indigo-700 border-indigo-300',
+      entertainment: 'bg-amber-100 text-amber-700 border-amber-300',
+    };
+    return colors[category] || 'bg-gray-100 text-gray-700 border-gray-300';
   };
 
   return (
@@ -87,6 +117,26 @@ export default function EpisodeLibrary({ onLoadEpisode, onClose }) {
               </div>
             </div>
           )}
+
+          {/* Category Filter */}
+          <div className="mb-4">
+            <p className="text-xs text-slate-600 mb-2 font-medium">Filter by Category</p>
+            <div className="flex flex-wrap gap-2">
+              {['all', 'technology', 'business', 'finance', 'personal_development', 'health', 'science', 'education', 'entertainment'].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => handleCategoryFilter(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    selectedCategory === cat
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600'
+                  }`}
+                >
+                  {cat === 'all' ? '📚 All' : cat.replace('_', ' ').charAt(0).toUpperCase() + cat.replace('_', ' ').slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Search and View Mode */}
           <div className="flex items-center space-x-3">
@@ -164,12 +214,22 @@ export default function EpisodeLibrary({ onLoadEpisode, onClose }) {
                       />
                     )}
 
-                    {/* Platform Badge */}
-                    {episode.data.metadata?.platform && (
-                      <span className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium mb-2">
-                        {episode.data.metadata.platform.icon} {episode.data.metadata.platform.name}
-                      </span>
-                    )}
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {/* Category Badge */}
+                      {episode.data.analysis?.categories?.primary && (
+                        <span className={`inline-block px-2 py-1 text-xs font-semibold rounded border ${getCategoryBadgeColor(episode.data.analysis.categories.primary)}`}>
+                          {episode.data.analysis.categories.primary.replace('_', ' ').toUpperCase()}
+                        </span>
+                      )}
+
+                      {/* Platform Badge */}
+                      {episode.data.metadata?.platform && (
+                        <span className="inline-block px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs font-medium">
+                          {episode.data.metadata.platform.icon} {episode.data.metadata.platform.name}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Title */}
                     <h3 className="font-bold text-slate-800 mb-2 line-clamp-2">

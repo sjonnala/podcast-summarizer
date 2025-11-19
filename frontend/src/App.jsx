@@ -6,6 +6,7 @@ import Results from './components/Results';
 import ErrorMessage from './components/ErrorMessage';
 import EpisodeLibrary from './components/EpisodeLibrary';
 import ProviderSelector from './components/ProviderSelector';
+import TrendingFeed from './components/TrendingFeed';
 import { processPodcast } from './services/api';
 import { saveEpisode } from './utils/storageService';
 
@@ -14,6 +15,7 @@ function App() {
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showTrendingFeed, setShowTrendingFeed] = useState(false);
   const [saved, setSaved] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('auto');
 
@@ -81,8 +83,17 @@ function App() {
             <PodcastInput onSubmit={handleSubmit} disabled={loading} />
             {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
 
-            {/* Library Access Button */}
-            <div className="mt-6 text-center">
+            {/* Action Buttons */}
+            <div className="mt-6 flex items-center justify-center gap-4">
+              <button
+                onClick={() => setShowTrendingFeed(true)}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium shadow-lg hover:shadow-xl"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                Discover Trending
+              </button>
               <button
                 onClick={() => setShowLibrary(true)}
                 className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-lg hover:shadow-xl"
@@ -113,6 +124,14 @@ function App() {
         <EpisodeLibrary
           onLoadEpisode={handleLoadEpisode}
           onClose={() => setShowLibrary(false)}
+        />
+      )}
+
+      {/* Trending Feed Modal */}
+      {showTrendingFeed && (
+        <TrendingFeed
+          onSelectPodcast={handleSubmit}
+          onClose={() => setShowTrendingFeed(false)}
         />
       )}
 

@@ -22,6 +22,7 @@ export async function extractTranscript(audioUrl) {
         audio_url: audioUrl,
         auto_chapters: true, // Get chapter information for better structure
         speaker_labels: true, // Enable speaker diarization
+        sentiment_analysis: true, // Enable sentiment analysis
         punctuate: true,
         format_text: true,
       },
@@ -83,12 +84,29 @@ export async function extractTranscript(audioUrl) {
           });
         }
 
+        // Calculate sentiment statistics if sentiment analysis is available
+        const sentimentStats = {
+          positive: 0,
+          negative: 0,
+          neutral: 0,
+        };
+
+        if (transcript.sentiment_analysis_results && transcript.sentiment_analysis_results.length > 0) {
+          transcript.sentiment_analysis_results.forEach(result => {
+            if (result.sentiment === 'POSITIVE') sentimentStats.positive++;
+            else if (result.sentiment === 'NEGATIVE') sentimentStats.negative++;
+            else if (result.sentiment === 'NEUTRAL') sentimentStats.neutral++;
+          });
+        }
+
         return {
           text: transcript.text,
           chapters: transcript.chapters || [],
           sentences: sentencesResponse.data.sentences || [],
           utterances: transcript.utterances || [],
           speakerStats: Object.values(speakerStats),
+          sentimentAnalysis: transcript.sentiment_analysis_results || [],
+          sentimentStats: sentimentStats,
           duration: transcript.audio_duration || 0,
         };
       } else if (transcript.status === 'error') {

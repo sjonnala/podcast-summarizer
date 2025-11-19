@@ -26,7 +26,16 @@ export async function processPodcast(podcastUrl) {
         console.log('Using mock transcript for demo purposes...');
         transcript =
           'This is a demo transcript. In production, this would contain the actual podcast transcript extracted from the audio file. The transcript would include all spoken words from the podcast episode.';
-        transcriptData = { text: transcript, chapters: [], sentences: [], utterances: [], speakerStats: [], duration: 0 };
+        transcriptData = {
+          text: transcript,
+          chapters: [],
+          sentences: [],
+          utterances: [],
+          speakerStats: [],
+          sentimentAnalysis: [],
+          sentimentStats: { positive: 0, negative: 0, neutral: 0 },
+          duration: 0
+        };
       } else {
         throw error;
       }
@@ -77,6 +86,8 @@ export async function processPodcast(podcastUrl) {
       sentences: transcriptData.sentences || [], // Include for search functionality
       utterances: transcriptData.utterances || [],
       speakerStats: transcriptData.speakerStats || [],
+      sentimentAnalysis: transcriptData.sentimentAnalysis || [],
+      sentimentStats: transcriptData.sentimentStats || { positive: 0, negative: 0, neutral: 0 },
       analysis,
       processingTime: `${processingTime}s`,
       timestamp: new Date().toISOString(),

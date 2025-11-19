@@ -3,9 +3,10 @@ import AudioPlayer from './AudioPlayer';
 import ChapterNavigation from './ChapterNavigation';
 import SpeakerStats from './SpeakerStats';
 import TranscriptSearch from './TranscriptSearch';
+import SentimentTimeline from './SentimentTimeline';
 
 export default function Results({ data, onReset }) {
-  const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences } = data;
+  const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences, sentimentAnalysis, sentimentStats, duration } = data;
   const [seekToTime, setSeekToTime] = useState(null);
 
   const handleTimestampClick = (seconds) => {
@@ -29,6 +30,14 @@ export default function Results({ data, onReset }) {
 
       {/* Transcript Search - only show if sentences are available */}
       <TranscriptSearch sentences={sentences} onTimestampClick={handleTimestampClick} />
+
+      {/* Sentiment Analysis - only show if sentiment data is available */}
+      <SentimentTimeline
+        sentimentAnalysis={sentimentAnalysis}
+        sentimentStats={sentimentStats}
+        duration={duration}
+        onTimestampClick={handleTimestampClick}
+      />
 
       {/* Header with title and reset button */}
       <div className="glass-card p-6">

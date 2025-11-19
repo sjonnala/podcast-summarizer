@@ -1,6 +1,22 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 /**
+ * Helper function to find speaker for a given timestamp
+ * @param {number} timestampMs - Timestamp in milliseconds
+ * @param {Array} utterances - Array of utterances with speaker labels
+ * @returns {string|null} - Speaker label or null
+ */
+function findSpeakerAtTimestamp(timestampMs, utterances) {
+  if (!utterances || utterances.length === 0) {
+    return null;
+  }
+
+  // Find the utterance that contains this timestamp
+  const utterance = utterances.find(u => u.start <= timestampMs && u.end >= timestampMs);
+  return utterance ? utterance.speaker : null;
+}
+
+/**
  * Helper function to find timestamp for a text snippet
  * @param {string} snippet - Text snippet to find
  * @param {Array} sentences - Array of sentences with timestamps
@@ -72,9 +88,10 @@ function formatTimestamp(ms) {
  * Analyze transcript using Claude AI with timestamp mapping
  * @param {string} transcript - The podcast transcript
  * @param {Array} sentences - Array of sentences with timestamps from AssemblyAI
+ * @param {Array} utterances - Array of utterances with speaker labels from AssemblyAI
  * @returns {Promise<Object>} - Analysis results
  */
-export async function analyzeTranscript(transcript, sentences = []) {
+export async function analyzeTranscript(transcript, sentences = [], utterances = []) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -166,14 +183,18 @@ Ensure your response is valid JSON that can be parsed.`,
     // Parse the JSON response
     const analysis = JSON.parse(responseText);
 
-    // Add timestamps to highlights if sentences are available
+    // Add timestamps and speaker labels to highlights if sentences are available
     if (sentences && sentences.length > 0) {
       analysis.highlights = analysis.highlights.map(highlight => {
         const timestamp = findTimestampForText(highlight.snippet || highlight.text, sentences);
+        const timestampMs = timestamp.seconds * 1000;
+        const speaker = findSpeakerAtTimestamp(timestampMs, utterances);
+
         return {
           ...highlight,
           timestamp: timestamp.formatted,
           timestampSeconds: timestamp.seconds,
+          speaker: speaker,
         };
       });
     }

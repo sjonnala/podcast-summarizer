@@ -1,9 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AudioPlayer from './AudioPlayer';
+import ChapterNavigation from './ChapterNavigation';
+import SpeakerStats from './SpeakerStats';
+import TranscriptSearch from './TranscriptSearch';
+import SentimentTimeline from './SentimentTimeline';
+import PodcastMetadata from './PodcastMetadata';
+import ExportOptions from './ExportOptions';
+import CostBreakdown from './CostBreakdown';
+import BookmarkManager from './BookmarkManager';
+import QuoteCard from './QuoteCard';
 
-export default function Results({ data, onReset }) {
-  const { analysis, processingTime, audioUrl } = data;
+export default function Results({ data, onReset, onSave, saved }) {
+  const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences, sentimentAnalysis, sentimentStats, duration, metadata } = data;
   const [seekToTime, setSeekToTime] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [selectedQuote, setSelectedQuote] = useState(null);
+  const [episodeId, setEpisodeId] = useState(null);
+
+  // Generate episode ID
+  useEffect(() => {
+    const id = generateEpisodeId(data);
+    setEpisodeId(id);
+  }, [data]);
+
+  const generateEpisodeId = (episodeData) => {
+    const base = episodeData.podcastUrl || episodeData.analysis?.title || '';
+    return btoa(base).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+  };
 
   const handleTimestampClick = (seconds) => {
     setSeekToTime(seconds);
@@ -13,9 +36,57 @@ export default function Results({ data, onReset }) {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Podcast Metadata - show platform and artwork */}
+      <PodcastMetadata metadata={metadata} analysis={analysis} />
+
       {/* Audio Player - only show if we have a valid audio URL */}
       {audioUrl && (
-        <AudioPlayer audioUrl={audioUrl} currentTime={seekToTime} />
+        <AudioPlayer
+          audioUrl={audioUrl}
+          currentTime={seekToTime}
+          chapters={chapters}
+          onTimeUpdate={setCurrentTime}
+        />
+      )}
+
+      {/* Chapter Navigation - only show if chapters are available */}
+      <ChapterNavigation chapters={chapters} onChapterClick={handleTimestampClick} />
+
+      {/* Speaker Statistics - only show if speaker data is available */}
+      <SpeakerStats speakerStats={speakerStats} utterances={utterances} />
+
+      {/* Transcript Search - only show if sentences are available */}
+      <TranscriptSearch sentences={sentences} onTimestampClick={handleTimestampClick} />
+
+      {/* Sentiment Analysis - only show if sentiment data is available */}
+      <SentimentTimeline
+        sentimentAnalysis={sentimentAnalysis}
+        sentimentStats={sentimentStats}
+        duration={duration}
+        onTimestampClick={handleTimestampClick}
+      />
+
+      {/* Export Options */}
+      <ExportOptions data={data} />
+
+      {/* Cost Breakdown */}
+      <CostBreakdown data={data} />
+
+      {/* Bookmark Manager */}
+      <BookmarkManager
+        episodeId={episodeId}
+        currentTime={currentTime}
+        onJumpToTime={handleTimestampClick}
+      />
+
+      {/* Quote Modal */}
+      {selectedQuote && (
+        <QuoteCard
+          highlight={selectedQuote}
+          episodeTitle={analysis.title}
+          metadata={metadata}
+          onClose={() => setSelectedQuote(null)}
+        />
       )}
 
       {/* Header with title and reset button */}
@@ -49,15 +120,34 @@ export default function Results({ data, onReset }) {
               )}
             </div>
           </div>
-          <button
-            onClick={onReset}
-            className="ml-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center space-x-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>New Analysis</span>
-          </button>
+          <div className="flex items-center space-x-2 ml-4">
+            <button
+              onClick={onSave}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                saved
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {saved ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                )}
+              </svg>
+              <span>{saved ? 'Saved!' : 'Save to Library'}</span>
+            </button>
+            <button
+              onClick={onReset}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>New Analysis</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -75,6 +165,18 @@ export default function Results({ data, onReset }) {
             const highlightText = typeof highlight === 'string' ? highlight : highlight.text;
             const timestamp = typeof highlight === 'object' ? highlight.timestamp : null;
             const timestampSeconds = typeof highlight === 'object' ? highlight.timestampSeconds : null;
+            const speaker = typeof highlight === 'object' ? highlight.speaker : null;
+
+            // Speaker colors (same as SpeakerStats)
+            const speakerColors = {
+              'A': { bg: 'bg-blue-100', text: 'text-blue-700', badge: 'bg-blue-500' },
+              'B': { bg: 'bg-purple-100', text: 'text-purple-700', badge: 'bg-purple-500' },
+              'C': { bg: 'bg-green-100', text: 'text-green-700', badge: 'bg-green-500' },
+              'D': { bg: 'bg-orange-100', text: 'text-orange-700', badge: 'bg-orange-500' },
+              'E': { bg: 'bg-pink-100', text: 'text-pink-700', badge: 'bg-pink-500' },
+              'F': { bg: 'bg-teal-100', text: 'text-teal-700', badge: 'bg-teal-500' },
+            };
+            const colors = speaker ? speakerColors[speaker] : null;
 
             return (
               <li key={index} className="flex items-start group">
@@ -83,17 +185,37 @@ export default function Results({ data, onReset }) {
                 </span>
                 <div className="flex-1">
                   <p className="text-slate-700 leading-relaxed pt-1">{highlightText}</p>
-                  {timestamp && (
+                  <div className="mt-2 flex items-center space-x-2 flex-wrap">
+                    {speaker && colors && (
+                      <span className={`inline-flex items-center px-2 py-1 ${colors.bg} ${colors.text} rounded-full text-xs font-medium`}>
+                        <span className={`w-4 h-4 ${colors.badge} text-white rounded-full flex items-center justify-center text-xs mr-1`}>
+                          {speaker}
+                        </span>
+                        Speaker {speaker}
+                      </span>
+                    )}
+                    {timestamp && (
+                      <button
+                        onClick={() => handleTimestampClick(timestampSeconds)}
+                        className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                        </svg>
+                        Jump to {timestamp}
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleTimestampClick(timestampSeconds)}
-                      className="mt-2 inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors"
+                      onClick={() => setSelectedQuote(highlight)}
+                      className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium hover:bg-purple-200 transition-colors"
+                      title="Share as quote"
                     >
                       <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
                       </svg>
-                      Jump to {timestamp}
+                      Share Quote
                     </button>
-                  )}
+                  </div>
                 </div>
               </li>
             );

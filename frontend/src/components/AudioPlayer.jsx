@@ -1,10 +1,11 @@
 import { useRef, useState, useEffect } from 'react';
 
-export default function AudioPlayer({ audioUrl, currentTime, onTimeUpdate }) {
+export default function AudioPlayer({ audioUrl, currentTime, onTimeUpdate, chapters }) {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentPlayTime, setCurrentPlayTime] = useState(0);
+  const [currentChapter, setCurrentChapter] = useState(null);
 
   // Seek to specific time when currentTime prop changes
   useEffect(() => {
@@ -28,9 +29,18 @@ export default function AudioPlayer({ audioUrl, currentTime, onTimeUpdate }) {
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
-      setCurrentPlayTime(audioRef.current.currentTime);
+      const time = audioRef.current.currentTime;
+      setCurrentPlayTime(time);
+
+      // Find current chapter based on playback time
+      if (chapters && chapters.length > 0) {
+        const timeMs = time * 1000;
+        const chapter = chapters.find(ch => timeMs >= ch.start && timeMs < ch.end);
+        setCurrentChapter(chapter);
+      }
+
       if (onTimeUpdate) {
-        onTimeUpdate(audioRef.current.currentTime);
+        onTimeUpdate(time);
       }
     }
   };
@@ -95,6 +105,21 @@ export default function AudioPlayer({ audioUrl, currentTime, onTimeUpdate }) {
           </div>
         </div>
       </div>
+
+      {/* Current Chapter Display */}
+      {currentChapter && (
+        <div className="mt-3 pt-3 border-t border-slate-200">
+          <div className="flex items-start">
+            <svg className="w-4 h-4 text-indigo-500 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-xs text-slate-500 mb-0.5">Now Playing</p>
+              <p className="text-sm font-medium text-slate-700">{currentChapter.headline}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hidden audio element */}
       <audio

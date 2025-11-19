@@ -5,6 +5,7 @@ import SpeakerStats from './SpeakerStats';
 import TranscriptSearch from './TranscriptSearch';
 import SentimentTimeline from './SentimentTimeline';
 import PodcastMetadata from './PodcastMetadata';
+import ExportOptions from './ExportOptions';
 
 export default function Results({ data, onReset }) {
   const { analysis, processingTime, audioUrl, chapters, utterances, speakerStats, sentences, sentimentAnalysis, sentimentStats, duration, metadata } = data;
@@ -42,6 +43,9 @@ export default function Results({ data, onReset }) {
         duration={duration}
         onTimestampClick={handleTimestampClick}
       />
+
+      {/* Export Options */}
+      <ExportOptions data={data} />
 
       {/* Header with title and reset button */}
       <div className="glass-card p-6">
